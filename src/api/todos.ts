@@ -4,7 +4,7 @@ import { client } from '../utils/fetchClient';
 const USER_ID = 2338;
 
 export const getTodos = () => {
-  return client.get<Todo[]>('/todos?userId=123');
+  return client.get<Todo[]>(`/todos?userId=${USER_ID}`);
 };
 
 export const createTodo = (title: string): Promise<Todo> => {

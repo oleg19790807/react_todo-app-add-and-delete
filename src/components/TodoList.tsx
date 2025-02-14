@@ -5,10 +5,14 @@ import classNames from 'classnames';
 interface Props {
   todos: Todo[];
   onDelete: (id: number) => void;
-  isLoading: boolean;
+  deletingTodoId: number | null;
 }
 
-export const TodoList: React.FC<Props> = ({ todos, isLoading, onDelete }) => (
+export const TodoList: React.FC<Props> = ({
+  todos,
+  onDelete,
+  deletingTodoId,
+}) => (
   <>
     {todos.map(todo => (
       <div
@@ -40,7 +44,9 @@ export const TodoList: React.FC<Props> = ({ todos, isLoading, onDelete }) => (
 
         <div
           data-cy="TodoLoader"
-          className={`modal overlay ${isLoading && 'is-active'}`}
+          className={classNames('modal overlay', {
+            'is-active': deletingTodoId === todo.id,
+          })}
         >
           <div className="modal-background has-background-white-ter" />
           <div className="loader" />

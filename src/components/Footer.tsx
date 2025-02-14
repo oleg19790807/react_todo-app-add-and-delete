@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import React from 'react';
 import classNames from 'classnames';
 import FilterStatus from '../enums/FilterStatus';
@@ -8,6 +7,7 @@ interface FooterProps {
   todos: Todo[];
   filterStatus: FilterStatus;
   setFilterStatus: React.Dispatch<React.SetStateAction<FilterStatus>>;
+  onClearCompleted: () => void;
   className?: string;
   'data-cy'?: string;
 }
@@ -16,6 +16,7 @@ export const Footer: React.FC<FooterProps> = ({
   todos,
   filterStatus,
   setFilterStatus,
+  onClearCompleted,
   className,
   'data-cy': dataCy,
 }) => {
@@ -35,31 +36,25 @@ export const Footer: React.FC<FooterProps> = ({
     </a>
   ));
 
-  const handleClearCompleted = () => {
-    console.log('Clear completed todos');
-  };
-
-  const clearCompletedButton = (
-    <button
-      type="button"
-      className="todoapp__clear-completed"
-      data-cy="ClearCompletedButton"
-      onClick={handleClearCompleted}
-      disabled={!todos.some(todo => todo.completed)}
-    >
-      Clear completed
-    </button>
-  );
-
   return (
     <footer className={className} data-cy={dataCy}>
       <span className="todo-count" data-cy="TodosCounter">
-        {activeTodoCount} items left
+        {`${activeTodoCount} item${activeTodoCount !== 1 ? 's' : ''} left`}
       </span>
+
       <nav className="filter" data-cy="Filter">
         {filterLinks}
       </nav>
-      {clearCompletedButton}
+
+      <button
+        type="button"
+        className="todoapp__clear-completed"
+        data-cy="ClearCompletedButton"
+        onClick={onClearCompleted}
+        disabled={!todos.some(todo => todo.completed)}
+      >
+        Clear completed
+      </button>
     </footer>
   );
 };

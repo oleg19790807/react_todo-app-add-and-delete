@@ -1,5 +1,7 @@
+/* eslint-disable max-len */
+/* eslint-disable jsx-a11y/label-has-associated-control */
 import React, { useState, useEffect, useRef } from 'react';
-import { getTodos, createTodo } from './api/todos';
+import { getTodos, createTodo, deleteTodo } from './api/todos';
 import { TodoList } from './components/TodoList';
 import { UserWarning } from './UserWarning';
 import { Loader } from './components/Loader';
@@ -21,6 +23,8 @@ export const App: React.FC = () => {
   );
   const [isAddingTodo, setIsAddingTodo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+  const [deletingTodoId, setDeletingTodoId] = useState<number | null>(null);
 
   const loadTodos = async () => {
     setIsLoading(true);
@@ -50,6 +54,12 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAddingTodo && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isAddingTodo]);
+
   const handleCreateTodo = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -65,34 +75,88 @@ export const App: React.FC = () => {
     setErrorMessage('');
     setShowError(false);
 
+    const temp: Todo = {
+      id: 0,
+      userId: USER_ID,
+      title: newTodoTitle.trim(),
+      completed: false,
+    };
+
+    setTempTodo(temp);
+
     try {
       const newTodo = await createTodo(newTodoTitle);
 
       setTodos(prevTodos => [...prevTodos, newTodo]);
       setNewTodoTitle('');
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
     } catch (error) {
       setErrorMessage('Unable to add a todo');
       setShowError(true);
+      // Set a timeout to hide the error message after 3 seconds
+      setTimeout(() => {
+        setShowError(false);
+        setErrorMessage('');
+      }, 3000);
     } finally {
       setIsAddingTodo(false);
+      setTempTodo(null);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
 
   const handleDeleteTodo = async (id: number) => {
-    setIsLoading(true);
+    setDeletingTodoId(id);
     setErrorMessage('');
     setShowError(false);
     try {
+      await deleteTodo(id);
       setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
     } catch (error) {
       setErrorMessage('Unable to delete a todo');
       setShowError(true);
       setTimeout(() => setShowError(false), 3000);
     } finally {
-      setIsLoading(false);
+      setDeletingTodoId(null);
+
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  };
+
+  const handleClearCompleted = async () => {
+    const completedTodos = todos.filter(todo => todo.completed);
+
+    setErrorMessage('');
+    setShowError(false);
+
+    const deletePromises = completedTodos.map(todo =>
+      deleteTodo(todo.id)
+        .then(() => ({ id: todo.id, success: true }))
+        .catch(() => ({ id: todo.id, success: false })),
+    );
+
+    const results = await Promise.all(deletePromises);
+
+    const failedDeletions = results.filter(result => !result.success);
+    const successfulDeletions = results.filter(result => result.success);
+
+    if (failedDeletions.length > 0) {
+      setErrorMessage('Unable to delete a todo');
+      setShowError(true);
+      // Don't hide the error message automatically
+    }
+
+    setTodos(prevTodos =>
+      prevTodos.filter(
+        todo => !successfulDeletions.some(result => result.id === todo.id),
+      ),
+    );
+
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
 
@@ -141,7 +205,7 @@ export const App: React.FC = () => {
               value={newTodoTitle}
               onChange={e => setNewTodoTitle(e.target.value)}
               disabled={isAddingTodo}
-              ref={inputRef}
+              ref={inputRef} // Assign the ref to the input field
             />
           </form>
         </header>
@@ -149,11 +213,34 @@ export const App: React.FC = () => {
           {isLoading ? (
             <Loader />
           ) : (
-            <TodoList
-              todos={filteredTodos}
-              onDelete={handleDeleteTodo}
-              isLoading={isLoading}
-            />
+            <>
+              <TodoList
+                todos={filteredTodos}
+                onDelete={handleDeleteTodo}
+                deletingTodoId={deletingTodoId}
+              />
+              {tempTodo && (
+                <div data-cy="Todo" className="todo">
+                  <label className="todo__status-label">
+                    <input type="checkbox" className="todo__status" />
+                  </label>
+                  <span data-cy="TodoTitle" className="todo__title">
+                    {tempTodo.title}
+                  </span>
+                  <button
+                    type="button"
+                    className="todo__remove"
+                    data-cy="TodoDelete"
+                  >
+                    ×
+                  </button>
+                  <div data-cy="TodoLoader" className="modal overlay is-active">
+                    <div className="modal-background has-background-white-ter" />
+                    <div className="loader" />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
         {todos.length > 0 && (
@@ -161,6 +248,7 @@ export const App: React.FC = () => {
             todos={todos}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
+            onClearCompleted={handleClearCompleted}
             className="todoapp__footer"
             data-cy="Footer"
           />
